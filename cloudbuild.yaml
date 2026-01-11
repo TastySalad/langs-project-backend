@@ -1,11 +1,11 @@
 steps:
   # Build the Docker image for your backend service
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/website-backend-service:$COMMIT_SHA', '.']
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/newapp-backend-service:$COMMIT_SHA', '.']
 
   # Push the Docker image to Google Container Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/website-backend-service:$COMMIT_SHA']
+    args: ['push', 'gcr.io/$PROJECT_ID/newapp-backend-service:$COMMIT_SHA']
 
   # Deploy the image to your existing Cloud Run service
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -13,16 +13,16 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'website-backend-service' # This now matches your service name
+      - 'newapp-backend-service' # This now matches your service name
       - '--image'
-      - 'gcr.io/$PROJECT_ID/website-backend-service:$COMMIT_SHA' # This now matches the image name
+      - 'gcr.io/$PROJECT_ID/newapp-backend-service:$COMMIT_SHA' # This now matches the image name
       - '--region'
       - 'us-central1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
       - '--set-secrets'
-      - 'OPENAI_API_KEY=openai-key:latest'
+      - 'OPENAI_API_KEY=openai-api-key-535e:latest'
 
 options:
   # This tells Cloud Build to use a user-owned regional bucket for default logs.
@@ -31,4 +31,4 @@ options:
 
 # Store the built image name in the build artifacts
 images:
-  - 'gcr.io/$PROJECT_ID/website-backend-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/newapp-backend-service:$COMMIT_SHA'
