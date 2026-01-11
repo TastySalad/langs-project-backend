@@ -21,6 +21,8 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      - '--set-secrets'
+      - 'OPENAI_API_KEY=openai-key:latest'
 
 options:
   # This tells Cloud Build to use a user-owned regional bucket for default logs.
