@@ -9,7 +9,7 @@ class LLMService:
     def __init__(self):
         self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
     
-    def generate_npc_reply(self, transcript: str, npc_data: dict = None, context: dict = None) -> str:
+    def generate_npc_reply(self, transcript: str, npc_data: dict = None, context: dict = None, conversation_history: list = None) -> str:
         """
         Generate a short NPC reply using OpenAI GPT.
         
@@ -17,6 +17,7 @@ class LLMService:
             transcript: transcribed user speech
             npc_data: NPC personality info (name, personality, mood, etc.)
             context: game context (positions, etc.)
+            conversation_history: list of {role: 'user'|'npc', content: '...'}
         
         Returns:
             one-sentence NPC reply or fallback on error
@@ -35,16 +36,28 @@ Current mood: {mood}
 
 Respond to the player's speech with ONE SHORT sentence (max 15 words). Stay in character. Be natural and conversational."""
             
-            user_msg = f"Player says: {transcript}"
+            # Build messages with conversation history
+            messages = [{"role": "system", "content": system_prompt}]
             
-            logger.info(f"LLM: Generating reply for '{transcript}'")
+            # Add conversation history if provided
+            if conversation_history and isinstance(conversation_history, list):
+                for entry in conversation_history:
+                    role = entry.get('role', '')
+                    content = entry.get('content', '')
+                    if role == 'user':
+                        messages.append({"role": "user", "content": f"Player says: {content}"})
+                    elif role == 'npc':
+                        messages.append({"role": "assistant", "content": content})
+            
+            # Add current user message
+            user_msg = f"Player says: {transcript}"
+            messages.append({"role": "user", "content": user_msg})
+            
+            logger.info(f"LLM: Generating reply for '{transcript}' (history: {len(conversation_history or [])} messages)")
             
             response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_msg}
-                ],
+                messages=messages,
                 max_tokens=30,
                 temperature=0.7
             )
