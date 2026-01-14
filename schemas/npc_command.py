@@ -20,8 +20,11 @@ class NPCCommandRequest(BaseModel):
 
 class Action(BaseModel):
     type: str
+    # MOVE action fields
     direction: Optional[str] = None
     steps: Optional[int] = None
+    stepSize: Optional[int] = 16  # Default step size
+    speed: Optional[int] = 80      # Default speed (pixels/sec)
     confidence: Optional[float] = None
     text: Optional[str] = None
 
@@ -30,8 +33,9 @@ class TTS(BaseModel):
     audioBase64: str
 
 class NPCCommandResponse(BaseModel):
-    npcReplyText: str
-    actions: List[Action]
+    say: str                    # What the NPC says
+    actions: List[Action] = []  # Actions to execute
+    npcReplyText: str           # Deprecated, kept for compatibility
     tts: Optional[TTS] = None
     traceId: str
     # debug fields

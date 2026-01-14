@@ -60,14 +60,17 @@ def npc_command():
     else:
         logger.warning(f"[{trace_id}] No audio file provided")
 
-    # Generate NPC reply
-    npc_reply_text = llm_service.generate_npc_reply(transcript, npc, context, conversation_history)
-    logger.info(f"[{trace_id}] NPC reply: '{npc_reply_text}'")
+    # Generate NPC reply with actions
+    llm_response = llm_service.generate_npc_reply(transcript, npc, context, conversation_history)
+    say_text = llm_response.get('say', '')
+    actions = llm_response.get('actions', [])
+    logger.info(f"[{trace_id}] NPC say: '{say_text}'")
+    logger.info(f"[{trace_id}] Actions: {actions}")
 
-    # Generate TTS if reply exists
+    # Generate TTS if say text exists
     tts_data = None
-    if npc_reply_text and npc_reply_text.strip():
-        audio_bytes = tts_service.synthesize(npc_reply_text)
+    if say_text and say_text.strip():
+        audio_bytes = tts_service.synthesize(say_text)
         if audio_bytes:
             audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
             tts_data = {
@@ -82,7 +85,9 @@ def npc_command():
     response = {
         "traceId": trace_id,
         "transcript": transcript,
-        "npcReplyText": npc_reply_text,
+        "say": say_text,
+        "npcReplyText": say_text,  # Deprecated, kept for compatibility
+        "actions": actions,
         "tts": tts_data
     }
 
