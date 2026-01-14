@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 class LLMService:
     # Configuration constants
-    MAX_SAY_WORDS = 15  # Maximum words for NPC speech responses
+    MAX_SAY_WORDS = 25  # Maximum words for NPC speech responses
     MAX_RESPONSE_RETRIES = 2  # Max retries if response doesn't match schema
     
     def __init__(self):
@@ -32,12 +32,61 @@ class LLMService:
         
         try:
             npc_name = npc_data.get('name', 'NPC') if npc_data else 'NPC'
+            npc_role = npc_data.get('role', '') if npc_data else ''
+            background = npc_data.get('background', '') if npc_data else ''
             personality = npc_data.get('personality', '') if npc_data else ''
             mood = npc_data.get('mood', 'neutral') if npc_data else 'neutral'
+            obedience = npc_data.get('obedience', 0.5) if npc_data else 0.5
+            supported_actions = npc_data.get('supported_actions', ['MOVE']) if npc_data else ['MOVE']
+            town = npc_data.get('town', '') if npc_data else ''
+            recent_events = npc_data.get('recent_events', '') if npc_data else ''
             
-            system_prompt = f"""You are a game NPC named {npc_name}. 
+            # Calculate proximity and direction if context available
+            proximity_str = ""
+            if context:
+                npc_pos = context.get('npcPosition', {})
+                player_pos = context.get('playerPosition', {})
+                if npc_pos and player_pos:
+                    dx = player_pos.get('x', 0) - npc_pos.get('x', 0)
+                    dy = player_pos.get('y', 0) - npc_pos.get('y', 0)
+                    distance = (dx**2 + dy**2) ** 0.5
+                    
+                    # Determine semantic proximity level
+                    if distance < 80:
+                        proximity = "close"
+                    elif distance < 150:
+                        proximity = "moderate distance"
+                    else:
+                        proximity = "far"
+                    
+                    # Determine relative direction
+                    if abs(dx) > abs(dy):
+                        direction = "RIGHT" if dx > 0 else "LEFT"
+                    else:
+                        direction = "DOWN" if dy > 0 else "UP"
+                    
+                    proximity_str = f"\nThe player is {proximity} and to your {direction}."
+            
+            # Build supported actions section
+            actions_section = "SUPPORTED ACTIONS:\n"
+            if 'MOVE' in supported_actions:
+                actions_section += "- MOVE <direction> <steps>  (direction: UP/DOWN/LEFT/RIGHT, steps: 1-10)\n"
+            
+            system_prompt = f"""CONTEXT:
+Location: {town}
+Recent Events: {recent_events}
+
+CHARACTER:
+You are {npc_name}, a {npc_role}.
+Background: {background}
 Personality: {personality}
 Current mood: {mood}
+Obedience level: {obedience:.1f} (0=rebellious, 1=very obedient){proximity_str}
+
+GUIDELINES:
+- Stay true to your background and values. Let your past experiences inform your responses.
+- If unclear about what the player means, ask for clarification rather than assume.
+- Respond naturally as someone would in your position, not as a generic game character.
 
 You can perform actions in the game world. IMPORTANT: When the player asks you to move, walk, go, step, or return to a position, you MUST include movement commands in [ACTIONS].
 
@@ -45,9 +94,7 @@ REQUIRED FORMAT:
 [SAY] <what you say to the player>
 [ACTIONS] <action commands, one per line>
 
-SUPPORTED ACTIONS:
-- MOVE <direction> <steps>  (direction: UP/DOWN/LEFT/RIGHT, steps: 1-10)
-
+{actions_section}
 EXAMPLES:
 
 Player: "Move right 3 steps"
@@ -64,8 +111,9 @@ Player: "What's your name?"
 [SAY] My name is {npc_name}.
 
 RULES:
-- ANY request involving movement MUST include [ACTIONS]
-- If no action needed, only include [SAY]
+- ONLY use actions you can perform. {actions_section.replace('SUPPORTED ACTIONS:', '').strip()}
+- If asked to do something you cannot do, refuse appropriately based on your obedience level (low obedience: rude refusal, high obedience: apologetic refusal)
+- If no action is needed, only include [SAY]
 - Keep [SAY] responses SHORT (max {self.MAX_SAY_WORDS} words)"""
             
             # Build messages with conversation history
@@ -91,10 +139,10 @@ RULES:
             parsed = None
             for attempt in range(self.MAX_RESPONSE_RETRIES + 1):
                 response = self.client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o-mini",
                     messages=messages,
                     max_tokens=100,
-                    temperature=0.7
+                    temperature=0.8
                 )
                 
                 raw_reply = response.choices[0].message.content.strip()
